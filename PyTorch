@@ -1,0 +1,35 @@
+import torch
+import torchvision.transforms as T
+
+# Load the model (Deep Learning approach)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model = YourModelClass() # e.g., a Segmentation model
+model.load_state_dict(torch.load("pupil_segmenter.pth"))
+model.to(device).eval()
+
+# Preprocessing Pipeline
+preprocess = T.Compose([
+    T.ToPILImage(),
+    T.Resize((224, 224)), # Standard AI input size
+    T.ToTensor(),
+    T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+])
+
+def apply_pytorch_mask(frame):
+    # 1. Prepare image for the AI
+    input_tensor = preprocess(frame).unsqueeze(0).to(device)
+    
+    with torch.no_grad():
+        output = model(input_tensor)
+        # Assuming output is a segmentation mask where 1 = pupil, 0 = background
+        mask = torch.sigmoid(output).squeeze().cpu().numpy()
+    
+    # 2. Process Mask (Thresholding)
+    binary_mask = (mask > 0.5).astype(np.uint8) * 255
+    binary_mask = cv2.resize(binary_mask, (frame.shape[1], frame.shape[0]))
+    
+    # 3. Apply the 'Cloak'
+    # Use the mask to black out/blur the pupil in the original frame
+    frame[binary_mask > 0] = [0, 0, 0] # Simple black-out masking
+    
+    return frame
