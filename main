@@ -6,16 +6,18 @@ import numpy as np
 import torch
 from collections import deque
 
+
+
 # camera MJPEG streams
 CAMERA_URLS = {
-    "cam1": "http://192.168.1.101:81/stream",
-    "cam2": "http://192.168.1.102:81/stream"
+    "ESP32A": "http://192.168.1.101:81/stream",
+    "ESP32B": "http://192.168.1.102:81/stream"
 }
 
 SYNC_WINDOW = 0.03  # 30ms tolerance
 buffers = {
-    "cam1": deque(),
-    "cam2": deque()
+    "ESP32A": deque(),
+    "ESP32B": deque()
 }
 
 #MJPEG Stream reader

@@ -1,0 +1,40 @@
+import requests
+import socket
+from concurrent.futures import ThreadPoolExecutor
+
+PORT = 80
+NETWORK_PREFIX = "192.168.1."
+
+def check_camera(ip):
+    url = f"http://{ip}/capture"
+    try:
+        r = requests.get(url, timeout=0.5)
+        if r.status_code == 200 and "image" in r.headers.get("Content-Type",""):
+            print("TimerCAM found:", ip)
+            return ip
+    except:
+        pass
+    return None
+
+def discover_cameras():
+
+    ips = [NETWORK_PREFIX + str(i) for i in range(1,255)]
+    found = []
+
+    with ThreadPoolExecutor(max_workers=50) as executor:
+        results = executor.map(check_camera, ips)
+
+    for r in results:
+        if r:
+            found.append(r)
+
+    return found
+
+
+if __name__ == "__main__":
+
+    cameras = discover_cameras()
+
+    print("\nDetected TimerCAMs:")
+    for cam in cameras:
+        print(cam)
