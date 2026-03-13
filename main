@@ -1,0 +1,130 @@
+#real-time streaming
+import cv2
+import time
+import threading
+import numpy as np
+import torch
+from collections import deque
+
+# camera MJPEG streams
+CAMERA_URLS = {
+    "cam1": "http://192.168.1.101:81/stream",
+    "cam2": "http://192.168.1.102:81/stream"
+}
+
+SYNC_WINDOW = 0.03  # 30ms tolerance
+buffers = {
+    "cam1": deque(),
+    "cam2": deque()
+}
+
+#MJPEG Stream reader
+
+def stream_reader(name, url):
+
+    cap = cv2.VideoCapture(url)
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            continue
+
+        timestamp = time.time()
+
+        buffers[name].append((timestamp, frame))
+
+        # limit buffer
+        if len(buffers[name]) > 30:
+            buffers[name].popleft()
+
+#Frame Synchronazation engine
+
+def sync_frames():
+
+    while True:
+
+        if not buffers["cam1"] or not buffers["cam2"]:
+            continue
+
+        t1, f1 = buffers["cam1"][0]
+        t2, f2 = buffers["cam2"][0]
+
+        diff = abs(t1 - t2)
+
+        if diff < SYNC_WINDOW:
+
+            buffers["cam1"].popleft()
+            buffers["cam2"].popleft()
+
+            process_pair(f1, f2)
+
+        elif t1 < t2:
+            buffers["cam1"].popleft()
+        else:
+            buffers["cam2"].popleft()
+
+#Frame merge stage
+
+def merge_frames(f1, f2):
+
+    h = min(f1.shape[0], f2.shape[0])
+
+    f1 = cv2.resize(f1, (640, h))
+    f2 = cv2.resize(f2, (640, h))
+
+    merged = np.hstack((f1, f2))
+
+    return merged
+
+#Kraken-cloak master layer
+
+def kraken_cloak_mask(frame):
+
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+    _, mask = cv2.threshold(gray, 120, 255, cv2.THRESH_BINARY)
+
+    masked = cv2.bitwise_and(frame, frame, mask=mask)
+
+    return masked
+#AI/ML interface stage
+
+model = torch.jit.load("model.pt")
+
+def ai_inference(frame):
+
+    img = cv2.resize(frame, (224,224))
+    img = img.transpose(2,0,1)
+    img = torch.tensor(img).float().unsqueeze(0)/255
+
+    with torch.no_grad():
+        output = model(img)
+
+    return output
+#Processing pipeline
+
+def process_pair(f1, f2):
+
+    merged = merge_frames(f1, f2)
+
+    masked = kraken_cloak_mask(merged)
+
+    result = ai_inference(masked)
+
+    cv2.imshow("Merged Stream", masked)
+
+    if cv2.waitKey(1) == 27:
+        exit()
+#Launch Threads
+
+for name, url in CAMERA_URLS.items():
+    threading.Thread(target=stream_reader, args=(name, url), daemon=True).start()
+
+sync_frames()
+
+
+
+
+
+
+            
