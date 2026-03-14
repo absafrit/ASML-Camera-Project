@@ -123,10 +123,3 @@ for name, url in CAMERA_URLS.items():
     threading.Thread(target=stream_reader, args=(name, url), daemon=True).start()
 
 sync_frames()
-
-
-
-
-
-
-            
